@@ -1,0 +1,100 @@
+//pre-requisites to complete this test: 
+//1. new Custom type Email Templates named 'CustomerSurveys_EmailTemplate_EN' and 'CustomerSurveys_EmailTemplate_DE', with the email body of either: 
+//   En: “Hey [first_name], please fill out our survey: http://n26.com/survey/[contact.id ]”
+//   De: “Hey [first_name], bitte fülle unsere Umfrage aus: http://n26.com/survey/[contact.id ]“
+//2. Create a new APEX scheduler to run this APEX class on daily basis. 
+
+global class SendCustomerSurveyEmailScheduled implements Schedulable  {
+    public List<Contact> CustomersContact{get;set;}
+    
+    public EmailTemplate templte;
+    public Id owaId;
+  
+    global void execute(SchedulableContext sc) 
+    {
+		//define variables
+		CustomersContact=new List<Contact>();
+		
+		//initialize variables
+		CustomersContact.clear();
+		
+		//set the initial email template and OWA ID
+		try 
+		{
+				templte = [select Id, Subject, HtmlValue, Body, DeveloperName from EmailTemplate where DeveloperName = 'CustomerSurveys_EmailTemplate_EN'];
+				owaID = [select Id,address from OrgWideEmailAddress where DisplayName = 'noreply'].Id;
+			} catch(Exception e) {
+				System.debug(e.getMessage());
+				System.debug('No template found with the specified name. Job aborted.');
+				return;
+		}
+
+		// Map email addresses (a to address) with coresponding Contact Language
+		Map<String,String> contactEmailLanguageMap = new Map<String,String>();
+
+		// Populate the map by selecting the Contact records, which its Survey Date < TODAY
+        for(Contact ccs : [SELECT ID, FirstName, LastName, Email, Survey_Date__c, Language__c FROM Contact WHERE Survey_Date__c!= NULL AND Survey_Date__c <= TODAY order by Survey_Date__c asc]) {
+            String key = ccs.Email + ';' + ccs.ID;
+			String namelanguagecodes = ccs.FirstName + ';' + ccs.Language__c;
+            contactEmailLanguageMap.put(key, namelanguagecodes);
+        }
+		
+		// Build the email list and send it to each Contact email addresses that are populated into the contactEmailLanguageMap
+        if(contactEmailLanguageMap.size() > 0) 
+        {		
+            Messaging.SingleEmailMessage [] mils = new List<Messaging.SingleEmailMessage>();
+            for(String contactEmail: contactEmailLanguageMap.keySet()) 
+            {
+				mils.add(initMail(contactEmail.substringBefore(';'), contactEmail.substringAfter(';'), contactEmailLanguageMap.get(contactEmail).substringBefore(';'), contactEmailLanguageMap.get(contactEmail).substringAfter(';')));				
+			}
+			
+			// Don't send any email from a running test code!
+            if(!Test.isRunningTest()) {
+                Messaging.sendEmail(mils);
+            }
+        } 
+        else 
+        {
+            System.debug('no email to be sent');
+        }
+
+    }
+	
+	public Messaging.SingleEmailMessage initMail(String contactEmail, String contactID, String contactFirstName, String contactLanguage) {
+		//send the email directly within these block codes
+		
+		//check if language code is EN or DE
+        Messaging.SingleEmailMessage mil = new Messaging.SingleEmailMessage();
+        mil.setOrgWideEmailAddressId(owaId);
+        mil.setToAddresses(new String[] {contactEmail});
+        mil.setSaveAsActivity(false);
+        
+        contactLanguage = contactLanguage.toUpperCase();
+        if (contactLanguage == 'DE')
+        {
+            templte = [select Id, Subject, HtmlValue, Body, DeveloperName from EmailTemplate where DeveloperName = 'CustomerSurveys_EmailTemplate_DE'];
+        }
+        else
+        {
+            templte = [select Id, Subject, HtmlValue, Body, DeveloperName from EmailTemplate where DeveloperName = 'CustomerSurveys_EmailTemplate_EN'];
+        }
+        
+        //set the email template, subject, and body
+        mil.setTemplateId(templte.Id);
+        String subject = templte.Subject;
+        String plainBody = templte.Body;
+        String htmlBody = templte.HtmlValue;
+        
+        //replace merge field with the actual case owner
+        htmlBody = htmlBody.replace('{!Contact.FirstName}', contactFirstName);
+        htmlBody = htmlBody.replace('{!Contact.ID}', contactID);
+        plainBody = plainBody.replace('{!Contact.FirstName}', contactFirstName);
+        plainBody = plainBody.replace('{!Contact.ID}', contactID);
+        
+        mil.setSubject(subject);
+        mil.setHtmlBody(htmlBody);
+        mil.setPlainTextBody(plainBody);
+        
+        return mil;
+	}
+}
