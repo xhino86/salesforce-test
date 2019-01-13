@@ -1,1 +1,9 @@
-just a test readme file
+Pre-requisites for test number:
+1. Create a new Custom type Email Templates named 'CustomerSurveys_EmailTemplate_EN' and 'CustomerSurveys_EmailTemplate_DE', 
+with the email body of either: 
+En: “Hey [first_name], please fill out our survey: http://n26.com/survey/[contact.id ]”
+De: “Hey [first_name], bitte fülle unsere Umfrage aus: http://n26.com/survey/[contact.id ]“
+Also, create a new APEX scheduler to run this APEX class on daily basis.
+
+2. Create a new formula field named 'View Other Cases with Related Product', 
+so that it can clicked from the Case page layout to open the new Lightning component
