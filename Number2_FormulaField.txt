@@ -1,0 +1,1 @@
+HYPERLINK("lightning/cmp/c__Cases_with_Related_Products_and_Country?productName="+ TEXT(Contact.Product__c) + "&country=" + TEXT(Contact.Home_Country__c) , "View Related Cases")

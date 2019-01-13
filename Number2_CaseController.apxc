@@ -1,0 +1,7 @@
+public class CaseController {
+	@AuraEnabled
+    public static List<Case> getCases(String productName, String countryName) {
+        List<Case> cases = [SELECT casenumber,subject,contact.product__c,contact.home_country__c FROM Case WHERE contact.product__c=:productName AND contact.home_country__c=:countryName];
+        return cases;
+     }
+}
